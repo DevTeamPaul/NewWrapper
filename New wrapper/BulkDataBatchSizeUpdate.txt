@@ -1,0 +1,62 @@
+
+
+ /// <summary>
+        /// As above but as a transaction to rollback
+        /// </summary>
+        /// <param name="passedDataTable"></param>
+        /// <param name="passedDestinationProvider"></param>
+        /// <param name="passedDestinationTableName"></param>
+        /// <param name="passedNumberOfFieldsInLists"></param>
+        /// <param name="passedSourceFieldNames"></param>
+        /// <param name="passedDestinationFieldNames"></param>
+        /// <param name="headerRowInSourceProvider"></param>
+        /// <param name="passedBulkCopyTimeout"></param>
+        public void InsertBulkDataBatch(DataTable passedDataTable, string passedDestinationProvider, string passedDestinationTableName, int passedNumberOfFieldsInLists, ref List<string> passedSourceFieldNames, ref List<string> passedDestinationFieldNames, Boolean headerRowInSourceProvider, int passedBulkCopyTimeout)
+        {
+            try
+            {
+                DataTable dtSourceData = passedDataTable;
+                string consString = passedDestinationProvider;
+                using (SqlConnection con = new SqlConnection(consString))
+                {
+                    con.Open();
+                    using (SqlTransaction transaction = con.BeginTransaction())
+                    {
+                        using (SqlBulkCopy sqlBulkCopy = new SqlBulkCopy(con,SqlBulkCopyOptions.Default,transaction))
+                        {
+                            sqlBulkCopy.BulkCopyTimeout = passedBulkCopyTimeout;
+                            sqlBulkCopy.DestinationTableName = passedDestinationTableName;
+                            for (int i = 0; i < passedNumberOfFieldsInLists; i++)//20/07/2016 removed the "-1" from int i = 0; i < passedNumberOfFieldsInLists - 1; i++
+                            {
+                                sqlBulkCopy.ColumnMappings.Add(passedSourceFieldNames[i].ToString(), passedDestinationFieldNames[i].ToString());
+                            }
+                           
+                            try
+                            {
+                                sqlBulkCopy.WriteToServer(dtSourceData);
+                                transaction.Commit();
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine(ex.Message);
+                                transaction.Rollback();
+                            }
+                            finally
+                            {
+                                con.Close();
+                            }
+                          
+                        }
+                    }
+                }
+
+
+               
+                   
+                
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("An error occurred in the bulk data import:\r\nError Message - " + ex.Message + "\r\nStack Trace - " + ex.StackTrace);
+            }
+        }
